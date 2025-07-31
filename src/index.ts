@@ -1,7 +1,4 @@
-#!/usr/bin/env node
-
 import commandlineArgs from 'command-line-args';
-import commandLineUsage from 'command-line-usage'
 import * as consoleUsage from './consoleUsage';
 
 const mainDefs: commandlineArgs.OptionDefinition[] = [
@@ -11,11 +8,9 @@ const mainDefs: commandlineArgs.OptionDefinition[] = [
 ];
 
 const mainOptions = commandlineArgs(mainDefs, { stopAtFirstUnknown: true });
-const argv = mainOptions._unknown || [];
-
 
 if (mainOptions.input) {
     console.log(`Input file: ${mainOptions.input}`);
 }else{
-    console.log(commandLineUsage(consoleUsage.sections));
+    consoleUsage.printConsoleUsage();
 }

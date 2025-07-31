@@ -1,4 +1,6 @@
 import chalk from "chalk";
+import commandLineUsage from 'command-line-usage'
+
 
 
 const header =
@@ -11,7 +13,7 @@ const header =
 ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝╚═╝     ╚══════╝ 
 `
 
-export const sections = [
+const sections = [
     {
         content: chalk.magenta(header),
         raw: true
@@ -57,3 +59,7 @@ export const sections = [
         content: "Project Home: {underline https://github.com/SorceressLyra/localPipeline}"
     }
 ];
+
+export function printConsoleUsage(){
+   console.log(commandLineUsage(sections));
+}
