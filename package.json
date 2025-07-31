@@ -1,6 +1,6 @@
 {
   "name": "@sorceresslyra/localpipe",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "main": "out/index.js",
   "bin": {
     "localpipe": "out/index.js"
@@ -21,7 +21,7 @@
   ],
   "author": "SorceressLyra",
   "license": "GPL-3.0-only",
-  "description": "Command-line interface for testing and running local pipelines. Compatible with Azure Pipelines & CodeMagic",
+  "description": "Command-line interface for testing and running local pipelines.",
   "repository": {
     "type": "git",
     "url": "https://github.com/SorceressLyra/localPipeline.git"

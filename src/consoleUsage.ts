@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import commandLineUsage from 'command-line-usage'
+import { version, description } from '../package.json';
 
 
 
@@ -20,7 +21,13 @@ const sections = [
     },
     {
         header: chalk.magenta("LocalPipe"),
-        content: "Command-line interface for testing and running local pipelines. \n Compatible with {bold Azure Pipelines & CodeMagic}"
+        content:
+        `
+        ${description}
+        Compatible with {bold Azure Pipelines & CodeMagic}
+        
+        Version: {bold ${version}}
+        `
     },
     {
         header: chalk.magenta("Usage"),
@@ -60,6 +67,6 @@ const sections = [
     }
 ];
 
-export function printConsoleUsage(){
-   console.log(commandLineUsage(sections));
+export function printConsoleUsage() {
+    console.log(commandLineUsage(sections));
 }
