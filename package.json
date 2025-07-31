@@ -9,8 +9,7 @@
     "build": "tsc",
     "start": "node out/index.js",
     "dev": "tsc && node out/index.js",
-    "prepublishOnly": "npm run build",
-    "test-local": "npm run build && chmod +x out/index.js && npm link"
+    "test": "echo \"No tests specified\" && exit 0"
   },
   "keywords": [
     "cli",
