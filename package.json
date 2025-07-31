@@ -27,11 +27,11 @@
   "description": "Command-line interface for testing and running local pipelines.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SorceressLyra/localPipeline.git"
+    "url": "git+https://github.com/SorceressLyra/localpipe.git"
   },
-  "homepage": "https://github.com/SorceressLyra/localPipeline",
+  "homepage": "https://github.com/SorceressLyra/localpipe",
   "bugs": {
-    "url": "https://github.com/SorceressLyra/localPipeline/issues"
+    "url": "https://github.com/SorceressLyra/localpipe/issues"
   },
   "engines": {
     "node": ">=14.0.0"
