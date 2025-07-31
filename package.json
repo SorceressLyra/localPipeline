@@ -5,6 +5,9 @@
   "bin": {
     "localpipe": "out/index.js"
   },
+   "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node out/index.js",
@@ -24,7 +27,7 @@
   "description": "Command-line interface for testing and running local pipelines.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/SorceressLyra/localPipeline.git"
+    "url": "git+https://github.com/SorceressLyra/localPipeline.git"
   },
   "homepage": "https://github.com/SorceressLyra/localPipeline",
   "bugs": {
