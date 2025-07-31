@@ -4,10 +4,6 @@ on:
   workflow_dispatch:
   release:
     types: [published]
-  
-permissions:
-  id-token: write  # Required for OIDC
-  contents: read
 
 jobs:
   publish:
@@ -23,7 +19,15 @@ jobs:
       # Ensure npm 11.5.1 or later is installed
       - name: Update npm
         run: npm install -g npm@latest
-      - run: npm ci
-      - run: npm run build --if-present
-      - run: npm test
-      - run: npm publish --provenance
+      
+      - name: Install packages
+        run: npm ci
+      - name: Build and test
+        run: |
+          npm run build --if-present
+          npm test
+
+      # Use GitHub OIDC token for npm authentication
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
