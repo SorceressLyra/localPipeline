@@ -1,16 +1,44 @@
 {
   "name": "@sorceresslyra/localpipe",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "out/index.js",
+  "bin": {
+    "localpipe": "out/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node out/index.js",
-    "dev": "tsc && node out/index.js"
+    "dev": "tsc && node out/index.js",
+    "prepublishOnly": "npm run build",
+    "test-local": "npm run build && chmod +x out/index.js && npm link"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "cli",
+    "pipeline",
+    "local",
+    "azure-pipelines",
+    "codemagic",
+    "testing"
+  ],
+  "author": "SorceressLyra",
+  "license": "GPL-3.0-only",
+  "description": "Command-line interface for testing and running local pipelines. Compatible with Azure Pipelines & CodeMagic",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SorceressLyra/localPipeline.git"
+  },
+  "homepage": "https://github.com/SorceressLyra/localPipeline",
+  "bugs": {
+    "url": "https://github.com/SorceressLyra/localPipeline/issues"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    "out/**/*",
+    "readme.md",
+    "license.md"
+  ],
   "devDependencies": {
     "@types/command-line-args": "^5.2.3",
     "@types/command-line-usage": "^5.0.4",

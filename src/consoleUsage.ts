@@ -54,6 +54,6 @@ export const sections = [
         ]
     },
     {
-        content: "Project Home: {underline https://github.com/your-repo}"
+        content: "Project Home: {underline https://github.com/SorceressLyra/localPipeline}"
     }
 ];

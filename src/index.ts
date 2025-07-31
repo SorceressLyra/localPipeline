@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import commandlineArgs from 'command-line-args';
 import commandLineUsage from 'command-line-usage'
 import * as consoleUsage from './consoleUsage';

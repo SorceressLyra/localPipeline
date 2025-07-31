@@ -1,0 +1,28 @@
+# Source files
+src/
+tsconfig.json
+
+# Development files
+.vscode/
+.git/
+.gitignore
+
+# Test files
+test/
+tests/
+*.test.js
+*.test.ts
+
+# Documentation that's not needed in the package
+.github/
+
+# Node modules (should already be ignored by npm by default)
+node_modules/
+
+# Build artifacts that shouldn't be published
+*.log
+*.tsbuildinfo
+
+# OS generated files
+.DS_Store
+Thumbs.db
