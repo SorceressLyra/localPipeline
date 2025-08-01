@@ -1,6 +1,6 @@
 {
   "name": "@sorceresslyra/localpipe",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "main": "out/index.js",
   "bin": {
     "localpipe": "out/index.js"
