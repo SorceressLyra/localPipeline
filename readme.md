@@ -1,5 +1,11 @@
+# **!!CURRENTLY IN ALPHA STAGE!!**
+Functionality is in progress and subject to significant changes.
+Do not use in production environments.
+
+
 # LocalPipe
 A command-line interface for testing and running local pipelines.
+
 
 ## Overview
 LocalPipe is designed to be compatible with Azure Pipelines and CodeMagic, providing a streamlined way to test and execute local pipelines. 
