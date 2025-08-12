@@ -1,0 +1,728 @@
+# ==========================================================================
+# DEFINITIONS
+# =================================================_=========================
+definitions:
+  # --------------------------------------------------------------------------
+  # Script Definitions (Reusable YAML Anchors)
+  # --------------------------------------------------------------------------
+  scripts:
+    # Common Setup Scripts
+    - &fetch_dependencies
+      name: Fetch Flutter Dependencies
+      script: |
+        flutter pub get
+
+    - &create_env_file
+      name: Create .env file from Environment Variables
+      script: |
+        echo "APIROOT=${APIROOT}" > .env
+        echo "BUILD_INSTANCE=${BUILD_INSTANCE}" >> .env
+        echo "AUTH_BASEURL=${AUTH_BASEURL}" >> .env
+        echo "LOCIZE_URL=${LOCIZE_URL}" >> .env
+        echo "LOCIZE_API_KEY=${LOCIZE_API_KEY}" >> .env
+        echo "MIX_PANEL_TOKEN=${MIX_PANEL_TOKEN}"  >> .env
+        echo "GOOGLE_TRANSLATE_API_KEY=${GOOGLE_TRANSLATE_API_KEY}" >> .env
+        echo "NEW_RELIC_TOKEN_ANDROID=${NEW_RELIC_TOKEN_ANDROID}" >> .env
+        echo "NEW_RELIC_TOKEN_IOS=${NEW_RELIC_TOKEN_IOS}" >> .env
+        echo "QASE_PROJECT=${QASE_PROJECT}" >> .env
+        echo "QASE_TOKEN=${QASE_TOKEN}" >> .env
+
+    - &cat_env_file
+      name: Display .env file contents (for debugging)
+      script: |
+        cat .env
+
+    - &prep_locize
+      name: Prepare Locize script (set execute permissions)
+      script: |
+        cd $CM_BUILD_DIR
+        chmod +x locize/locize.sh
+
+    - &run_locize
+      name: Update localization keys from Locize
+      script: |
+        ./locize/locize.sh
+
+    # Android Specific Scripts
+    - &set_local_properties
+      name: Set up Android local.properties
+      script: |
+        echo "flutter.sdk=$HOME/programs/flutter" > "$CM_BUILD_DIR/android/local.properties"
+
+    - &android_build_apk
+      name: Build Android APK (Release mode, for non-prod or side-loading)
+      script: |
+        flutter build apk \
+          --release --build-number=$((BUILD_NUMBER + 2000))
+
+    - &android_build_aab_release
+      name: Build Android App Bundle (AAB) (Release mode, for Google Play)
+      script: |
+        flutter build appbundle --release \
+          --build-number=$((BUILD_NUMBER + 2000))
+
+    # iOS Specific Scripts
+    - &ios_codesign
+      name: Set up iOS code signing using project profiles
+      script: |
+        xcode-project use-profiles
+
+    - &ios_install_pods
+      name: Install CocoaPods dependencies for iOS
+      script: |
+        find . -name "Podfile" -execdir pod install \;
+
+    - &ios_build_ipa
+      name: Build iOS IPA (Development/AdHoc mode, for testing)
+      script: |
+        flutter build ipa \
+          --build-number=$((BUILD_NUMBER + 2000)) \
+          --export-options-plist=/Users/builder/export_options.plist
+
+    - &ios_build_ipa_release
+      name: Build iOS IPA (App Store Release mode)
+      script: |
+        flutter build ipa --release \
+          --build-number=$((BUILD_NUMBER + 2000))  \
+          --export-options-plist=/Users/builder/export_options.plist
+
+    # Firebase Test Lab Scripts
+    - &setup_gcloud
+      name: Setup Google Cloud SDK for Firebase Test Lab
+      script: |
+        # Authenticate gcloud with service account
+        echo $FIREBASE_SERVICE_ACCOUNT | base64 --decode > firebase-service-account.json
+        gcloud auth activate-service-account --key-file firebase-service-account.json
+        gcloud config set project $FIREBASE_PROJECT_ID
+
+    - &run_android_patrol_tests
+      name: Run Optimized Patrol Tests on Android Firebase Test Lab
+      script: |
+        # Set environment variables for test scripts
+        export FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID
+
+        # Make scripts executable
+        chmod +x firebase_test_lab/scripts/run_android_tests.sh
+
+        # Run the optimized tests
+        ./firebase_test_lab/scripts/run_android_tests.sh
+
+    - &run_ios_patrol_tests
+      name: Run Optimized Patrol Tests on iOS Firebase Test Lab
+      script: |
+        # Set environment variables for test scripts
+        export FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID
+
+        # Make scripts executable
+        chmod +x firebase_test_lab/scripts/run_ios_tests.sh
+
+        # Run the optimized tests
+        ./firebase_test_lab/scripts/run_ios_tests.sh
+
+    - &collect_test_results
+      name: Collect and Echo Test Results
+      script: |
+        echo "🔍 Collecting test results..."
+        
+        # Function to echo results with formatting
+        echo_results() {
+          local platform=$1
+          local results_dir=$2
+          
+          echo "=================================================="
+          echo "🧪 FIREBASE TEST LAB RESULTS - ${platform^^}"
+          echo "=================================================="
+          
+          if [ -d "$results_dir" ]; then
+            echo "📁 Results directory found: $results_dir"
+            
+            # Show all files in results directory
+            echo "📄 Files in results directory:"
+            ls -la "$results_dir/" 2>/dev/null || echo "No files found"
+            
+            # Try to show gcloud output if available
+            if [ -f "$results_dir/gcloud_output.json" ]; then
+              echo "📊 Test execution summary:"
+              cat "$results_dir/gcloud_output.json" | head -20
+            fi
+            
+            # Try to show test results if available
+            if [ -f "$results_dir/test_results.json" ]; then
+              echo "🎯 Detailed test results:"
+              cat "$results_dir/test_results.json" | head -20
+            fi
+            
+            # Show matrix IDs if available
+            if [ -f "$results_dir/matrix_ids.txt" ]; then
+              echo "🔢 Test matrix IDs:"
+              cat "$results_dir/matrix_ids.txt"
+            fi
+          else
+            echo "❌ Results directory not found: $results_dir"
+          fi
+          
+          echo "=================================================="
+        }
+        
+        # Collect Android results
+        if [ -d "firebase_test_results_android" ]; then
+          echo_results "Android" "firebase_test_results_android"
+        fi
+        
+        # Collect iOS results  
+        if [ -d "firebase_test_results_ios" ]; then
+          echo_results "iOS" "firebase_test_results_ios"
+        fi
+        
+        # Show Firebase Test Lab console link
+        echo "🌐 View detailed results at:"
+        echo "https://console.firebase.google.com/project/$FIREBASE_PROJECT_ID/testlab/histories"
+        
+        echo "✅ Test results collection completed"
+
+    - &run_specific_patrol_test
+      name: Run Specific Patrol Test
+      script: |
+        # Set environment variables
+        export FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID
+        export FIREBASE_RESULTS_BUCKET=$FIREBASE_RESULTS_BUCKET
+
+        # Make script executable
+        chmod +x firebase_test_lab/scripts/run_specific_test.sh
+
+        # Run specific test (can be overridden by environment variable)
+        TEST_FILE=${PATROL_TEST_FILE:-integration_test/workflows/checklist_interaction_test.dart}
+        PLATFORM=${PATROL_PLATFORM:-android}
+
+        ./firebase_test_lab/scripts/run_specific_test.sh $PLATFORM $TEST_FILE
+
+    - &empty_dotenv
+      name: Create empty .env file (for testing purposes)
+      script: |
+        echo "" > .env
+    
+    - &flutter_tests
+      name: Run Flutter Widget & Unit Tests
+      script: |
+        dart run scripts/qase_run_uploader.dart
+      test_report: test_results.json
+
+    - &copy_test_artifacts
+      name: Copy test artifacts to export directory
+      script: |
+        #!/usr/bin/env sh
+        # Copy coverage and test results to CM_EXPORT_DIR to ensure proper artifact collection
+        if [ -f "coverage/lcov.info" ]; then
+          mkdir -p "$CM_EXPORT_DIR/coverage"
+          cp coverage/lcov.info "$CM_EXPORT_DIR/coverage/lcov.info"
+          echo "Copied coverage/lcov.info to export directory"
+        fi
+        
+        if [ -f "test_results.json" ]; then
+          cp test_results.json "$CM_EXPORT_DIR/test_results.json"
+          echo "Copied test_results.json to export directory"
+        fi
+
+    - &widgetbook_build
+      name: Build Widgetbook
+      working_directory: widgetbook
+      script: |
+        flutter pub get
+        dart run build_runner build -d
+        flutter build web -t lib/main.dart
+
+    - &widgetbook_cli_install
+      name: Install Widgetbook CLI
+      script: dart pub global activate widgetbook_cli
+
+    - &widgetbook_upload
+      name: Push Widgetbook Build
+      working_directory: widgetbook
+      script: |
+        # Use CodeMagic environment variables
+        REPO_NAME="iKontrolAps/iKontrol/AppNew"
+        BRANCH_NAME=${CM_BRANCH:-"main"}
+        COMMIT_SHA=${CM_COMMIT:-$(git rev-parse HEAD)}
+        ACTOR=${CM_BUILD_TRIGGERING_ACTOR:-"codemagic"}
+        
+        echo "Repository: $REPO_NAME"
+        echo "Branch: $BRANCH_NAME" 
+        echo "Commit: $COMMIT_SHA"
+        echo "Actor: $ACTOR"
+        
+        # Ensure we have git context
+        git config --global user.email "ci@inspectly.com"
+        git config --global user.name "CodeMagic CI"
+        
+        # Push to Widgetbook Cloud with explicit parameters
+        widgetbook cloud build push \
+          --api-key "$WIDGETBOOK_API_KEY" \
+          --repository "$REPO_NAME" \
+          --branch "$BRANCH_NAME" \
+          --commit "$COMMIT_SHA" \
+          --actor "$ACTOR"
+
+# ==========================================================================
+# WORKFLOWS
+# ==========================================================================
+workflows:
+  # --------------------------------------------------------------------------
+  # NEW: Firebase Test Lab Workflows for Patrol Testing
+  # --------------------------------------------------------------------------
+
+  # Android Patrol Tests in Firebase Test Lab (Optimized)
+  android-patrol-tests:
+    name: Android Patrol Tests - Firebase Test Lab (Fast)
+    instance_type: linux
+    max_build_duration: 60  # Reduced from 120
+    environment:
+      groups:
+        - api_development # Use development API for testing
+        - shared
+      vars:
+        FIREBASE_PROJECT_ID: "inspectly-app" # Update with your Firebase project ID
+      flutter: $flutter_version
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.gradle/caches
+    triggering:
+      events: [push, pull_request]
+      branch_patterns:
+        - { pattern: "main", include: true, source: true }
+        - { pattern: "develop", include: true, source: true }
+        - { pattern: "feature/*", include: true, source: true }
+    scripts:
+      - *setup_gcloud
+      - *set_local_properties
+      - *fetch_dependencies
+      - *create_env_file
+      - *run_android_patrol_tests
+      - *collect_test_results
+    artifacts:
+      - firebase_test_results_android/**
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients: [product-android-test@inspectly.com]
+        notify: { success: true, failure: true }
+
+  # iOS Patrol Tests in Firebase Test Lab (Optimized)
+  ios-patrol-tests:
+    name: iOS Patrol Tests - Firebase Test Lab (Fast)
+    instance_type: mac_mini_m1
+    max_build_duration: 60  # Reduced from 120
+    environment:
+      groups:
+        - api_development
+        - shared
+      vars:
+        FIREBASE_PROJECT_ID: "inspectly-app"
+      flutter: $flutter_version
+      xcode: 16.2
+      cocoapods: default
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/ios/Pods
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/Library/Caches/CocoaPods
+    triggering:
+      events: [push, pull_request]
+      branch_patterns:
+        - { pattern: "main", include: true, source: true }
+        - { pattern: "develop", include: true, source: true }
+        - { pattern: "feature/*", include: true, source: true }
+    scripts:
+      - *setup_gcloud
+      - *fetch_dependencies
+      - *ios_install_pods
+      - *create_env_file
+      - *run_ios_patrol_tests
+      - *collect_test_results
+    artifacts:
+      - firebase_test_results_ios/**
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients: [product-ios-test@inspectly.com]
+        notify: { success: true, failure: true }
+
+  # Specific Test Runner (Optimized)
+  patrol-specific-test:
+    name: Run Specific Patrol Test (Fast)
+    instance_type: linux # Change to mac_mini_m1 for iOS
+    max_build_duration: 30  # Reduced from 60
+    environment:
+      groups:
+        - api_development
+        - shared
+      vars:
+        FIREBASE_PROJECT_ID: "inspectly-app"
+        PATROL_PLATFORM: "android" # Override: android or ios
+        PATROL_TEST_FILE: "integration_test/workflows/checklist_simple_test.dart" # Use optimized test
+      flutter: $flutter_version
+    triggering:
+      events: [tag] # Triggered manually or by tags
+    scripts:
+      - *setup_gcloud
+      - *set_local_properties # Only for Android
+      - *fetch_dependencies
+      - *create_env_file
+      - *run_specific_patrol_test
+      - *collect_test_results
+    artifacts:
+      - firebase_test_results_**/**
+      - flutter_drive.log
+
+  # Run flutter unit & Widget tests
+  # flutter-tests:
+  #   name: Flutter - Widget & Unit Tests
+  #   instance_type: linux
+  #   max_build_duration: 60
+  #   environment:
+  #     groups:
+  #       - shared
+  #     vars:
+  #       FLUTTER_TEST_DIR: "test"
+  #     flutter: $flutter_version
+  #   cache:
+  #     cache_paths:
+  #       - $FLUTTER_ROOT/.pub-cache
+  #   triggering:
+  #     events: [push, pull_request]
+  #     branch_patterns:
+  #       - { pattern: "main", include: true, source: true }
+  #       - { pattern: "feature/*", include: true, source: true }
+  #   scripts:
+  #     - *fetch_dependencies
+  #     - *create_env_file
+  #     - *flutter_tests
+
+  widgetbook:
+    name: Widgetbook Build & Upload
+    instance_type: linux
+    max_build_duration: 60
+    environment:
+      groups:
+        - shared
+      flutter: $flutter_version
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+    triggering:
+      events: [push]
+      branch_patterns:
+        - { pattern: "main", include: true, source: true }
+        - { pattern: "releaseFeature", include: true, source: true }
+    scripts:
+      - *fetch_dependencies
+      - *widgetbook_cli_install
+      - *create_env_file
+      - *widgetbook_build
+      - *widgetbook_upload
+  # --------------------------------------------------------------------------
+  # EXISTING WORKFLOWS (unchanged)
+  # --------------------------------------------------------------------------
+
+  # Android Workflow: Production Release (main branch)
+  android-workflow-release:
+    name: Android - Production Release (main)
+    instance_type: linux
+    max_build_duration: 120
+    environment:
+      groups:
+        - android
+        - api_prod
+        - google_credentials
+        - shared # Ensure $flutter_version is here or global
+      vars:
+        PACKAGE_NAME: "com.inspectly.inspectlyapp"
+        GOOGLE_PLAY_TRACK: "alpha"
+      flutter: $flutter_version
+      android_signing:
+        - Inspectly App Keystore
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.gradle/caches
+    triggering:
+      events: [push]
+      branch_patterns: [{ pattern: "main", include: true, source: true }]
+    scripts:
+      - *set_local_properties
+      - *fetch_dependencies
+      - *prep_locize
+      - *run_locize
+      - *create_env_file
+      - *cat_env_file
+      - *android_build_aab_release # Primary artifact for Play Store
+      - *android_build_apk # Secondary artifact (e.g., for direct sharing)
+    artifacts:
+      - build/**/outputs/**/*.aab
+      - build/**/outputs/**/*.apk
+      - build/**/outputs/**/mapping.txt
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients: [product-android-test@inspectly.com]
+        notify: { success: true, failure: true }
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: $GOOGLE_PLAY_TRACK
+
+  # --------------------------------------------------------------------------
+  # Android Workflow: Feature Release (releaseFeature branch)
+  # --------------------------------------------------------------------------
+  android-workflow-feature:
+    name: Android - Feature (releaseFeature)
+    instance_type: linux
+    max_build_duration: 120
+    environment:
+      groups:
+        - android
+        - api_development
+        - google_credentials
+        - shared
+      vars:
+        PACKAGE_NAME: "com.inspectly.inspectlyapp"
+        GOOGLE_PLAY_TRACK: "internal-testing" # Example: use a different track for features
+      flutter: $flutter_version
+      android_signing:
+        - Inspectly App Keystore
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.gradle/caches
+    triggering:
+      events: [push]
+      branch_patterns:
+        [{ pattern: "releaseFeature", include: true, source: true }]
+    scripts:
+      - *set_local_properties
+      - *fetch_dependencies
+      - *prep_locize
+      - *run_locize
+      - *create_env_file
+      - *cat_env_file
+      - *android_build_apk
+    artifacts:
+      - build/**/outputs/**/*.apk
+      - build/**/outputs/**/mapping.txt
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients: [product-android-test@inspectly.com]
+        notify: { success: true, failure: true }
+
+  # --------------------------------------------------------------------------
+  # Android Workflow: Hotfix Release (releaseHotfix branch)
+  # --------------------------------------------------------------------------
+  android-workflow-hotfix:
+    name: Android - Hotfix (releaseHotfix)
+    instance_type: linux
+    max_build_duration: 120
+    environment:
+      groups:
+        - android
+        - api_hotfix
+        - google_credentials
+        - shared
+      vars:
+        PACKAGE_NAME: "com.inspectly.inspectlyapp"
+        GOOGLE_PLAY_TRACK: "alpha" # Or production, depending on hotfix strategy
+      flutter: $flutter_version
+      android_signing:
+        - Inspectly App Keystore
+    cache:
+      cache_paths:
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/.gradle/caches
+    triggering:
+      events: [push]
+      branch_patterns:
+        [{ pattern: "releaseHotfix", include: true, source: true }]
+    scripts:
+      - *set_local_properties
+      - *fetch_dependencies
+      - *prep_locize
+      - *run_locize
+      - *create_env_file
+      - *cat_env_file
+      - *android_build_apk # Typically hotfixes might go straight to AAB if for prod
+        # Consider using *android_build_aab_release if this targets Play Store directly
+    artifacts:
+      - build/**/outputs/**/*.apk
+      - build/**/outputs/**/mapping.txt
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients: [product-android-test@inspectly.com]
+        notify: { success: true, failure: true }
+
+  # --------------------------------------------------------------------------
+  # iOS Workflow: Production Release (main branch)
+  # --------------------------------------------------------------------------
+  ios-workflow-release:
+    name: iOS - Production Release (main)
+    instance_type: mac_mini_m1
+    max_build_duration: 120
+    integrations:
+      app_store_connect: Inspectly Aps api key
+    environment:
+      groups:
+        - api_prod
+        - shared # Ensure $flutter_version is here or global
+      vars:
+        APP_ID: 1600890511 # Apple App ID
+      flutter: $flutter_version
+      xcode: 16.2 # Ensure this Xcode version is available and appropriate
+      cocoapods: default
+      ios_signing:
+        {
+          distribution_type: app_store,
+          bundle_identifier: com.inspectly.inspectlyapp,
+        }
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/ios/Pods # Pods directory
+        - $FLUTTER_ROOT/.pub-cache # Flutter pub cache
+        - $HOME/Library/Caches/CocoaPods # CocoaPods cache
+    triggering:
+      events: [push]
+      branch_patterns: [{ pattern: "main", include: true, source: true }]
+    scripts:
+      - *ios_codesign
+      - *fetch_dependencies
+      - *ios_install_pods
+      - *prep_locize
+      - *run_locize
+      - *create_env_file
+      - *cat_env_file
+      - *ios_build_ipa_release
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients: [product-ios-test@inspectly.com]
+        notify: { success: true, failure: true }
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups: # IMPORTANT: Update with your actual TestFlight group names
+          - "iOS Testers - Internal"
+          - "iOS Testers - External"
+        submit_to_app_store: false # Set to true to submit to App Store review
+
+  # --------------------------------------------------------------------------
+  # iOS Workflow: Feature Release (releaseFeature branch)
+  # --------------------------------------------------------------------------
+  ios-workflow-feature:
+    name: iOS - Feature (releaseFeature)
+    instance_type: mac_mini_m1
+    max_build_duration: 120
+    integrations:
+      app_store_connect: Inspectly Aps api key # For TestFlight upload of dev builds
+    environment:
+      groups:
+        - api_development
+        - shared
+      vars:
+        APP_ID: 1600890511
+      flutter: $flutter_version
+      xcode: 16.2
+      cocoapods: default
+      ios_signing:
+        {
+          distribution_type: development,
+          bundle_identifier: com.inspectly.inspectlyapp,
+        }
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/ios/Pods
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/Library/Caches/CocoaPods
+    triggering:
+      events: [push]
+      branch_patterns:
+        [{ pattern: "releaseFeature", include: true, source: true }]
+    scripts:
+      - *ios_codesign
+      - *fetch_dependencies
+      - *ios_install_pods
+      - *prep_locize
+      - *run_locize
+      - *create_env_file
+      - *cat_env_file
+      - *ios_build_ipa # Uses development/adhoc build
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients: [product-ios-test@inspectly.com]
+        notify: { success: true, failure: true }
+      # Optional: Publish development builds to a specific TestFlight group
+      # app_store_connect:
+      #   auth: integration
+      #   submit_to_testflight: true
+      #   beta_groups: [ "QA Team" ] # Example group for feature builds
+
+  # --------------------------------------------------------------------------
+  # iOS Workflow: Hotfix Release (releaseHotfix branch)
+  # --------------------------------------------------------------------------
+  ios-workflow-hotfix:
+    name: iOS - Hotfix (releaseHotfix)
+    instance_type: mac_mini_m1
+    max_build_duration: 120
+    integrations:
+      app_store_connect: Inspectly Aps api key
+    environment:
+      groups:
+        - api_hotfix
+        - shared
+      vars:
+        APP_ID: 1600890511
+      flutter: $flutter_version
+      xcode: 16.2
+      cocoapods: default
+      ios_signing:
+        {
+          distribution_type: development,
+          bundle_identifier: com.inspectly.inspectlyapp,
+        }
+      # For hotfixes targeting App Store, consider:
+      # ios_signing: {distribution_type: app_store, bundle_identifier: com.inspectly.inspectlyapp}
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/ios/Pods
+        - $FLUTTER_ROOT/.pub-cache
+        - $HOME/Library/Caches/CocoaPods
+    triggering:
+      events: [push]
+      branch_patterns:
+        [{ pattern: "releaseHotfix", include: true, source: true }]
+    scripts:
+      - *ios_codesign
+      - *fetch_dependencies
+      - *ios_install_pods
+      - *prep_locize
+      - *run_locize
+      - *create_env_file
+      - *cat_env_file
+      - *ios_build_ipa # Or *ios_build_ipa_release if hotfix goes to App Store
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+    publishing:
+      email:
+        recipients: [product-ios-test@inspectly.com]
+        notify: { success: true, failure: true }
+      # Optional: Publish hotfix builds to TestFlight or App Store
+      # app_store_connect:
+      #   auth: integration
+      #   submit_to_testflight: true # Or submit_to_app_store: true for production hotfix
+      #   beta_groups: [ "Urgent Testers" ]

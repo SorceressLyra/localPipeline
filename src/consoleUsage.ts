@@ -24,7 +24,7 @@ const sections = [
         content:
         `
         ${description}
-        Compatible with {bold Azure Pipelines & CodeMagic}
+        Compatible with {bold GitHub Actions, Azure Pipelines & CodeMagic}
         
         Version: {bold ${version}}
         `
@@ -32,8 +32,11 @@ const sections = [
     {
         header: chalk.magenta("Usage"),
         content: [
-            "$ localpipe --input {underline path} [--output {underline path}] [--verbose]",
-            "$ localpipe -i {underline path} [-o {underline path}] [-v]"
+            "$ localpipe --input {underline path} [--output {underline path}] [--verbose] [--type {underline type}] [--workflow {underline name}]",
+            "$ localpipe -i {underline path} [-o {underline path}] [-v] [-t {underline type}] [-w {underline name}]",
+            "$ localpipe --list {underline directory} [--verbose]",
+            "$ localpipe -l {underline directory} [-v]",
+            "$ localpipe --list-workflows {underline path} [--type {underline type}]"
         ]
     },
     {
@@ -44,21 +47,48 @@ const sections = [
                 alias: "i",
                 type: String,
                 typeLabel: "{underline path}",
-                description: "Path to the input file. ({italic required})",
+                description: "Path to the pipeline file or project directory. Interactive selection when multiple files/workflows found. ({italic required})",
             },
             {
                 name: "output",
                 alias: "o",
                 type: String,
                 typeLabel: "{underline path}",
-                description: "Path to the output file."
+                description: "Path to the output directory (optional)."
             },
             {
                 name: "verbose",
                 alias: "v",
                 type: Boolean,
                 typeLabel: "",
-                description: "Enable verbose output."
+                description: "Enable verbose output with detailed logs."
+            },
+            {
+                name: "type",
+                alias: "t",
+                type: String,
+                typeLabel: "{underline type}",
+                description: "Force pipeline type: github-actions, azure-devops, or codemagic."
+            },
+            {
+                name: "workflow",
+                alias: "w",
+                type: String,
+                typeLabel: "{underline name}",
+                description: "Select specific workflow to run (useful for multi-workflow files)."
+            },
+            {
+                name: "list",
+                alias: "l",
+                type: Boolean,
+                typeLabel: "",
+                description: "List all pipeline files found in the directory."
+            },
+            {
+                name: "list-workflows",
+                type: Boolean,
+                typeLabel: "",
+                description: "List all workflows in the specified pipeline file."
             }
         ]
     },
